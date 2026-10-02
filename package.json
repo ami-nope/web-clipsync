@@ -1,0 +1,18 @@
+{
+  "name": "railway-clipsync-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Minimal in-memory WebSocket relay for Clipboard Sync",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "check": "node --check src/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}
