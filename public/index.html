@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0d12">
+  <title>ClipSync — Clipboard bridge</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="page-glow glow-one"></div>
+  <div class="page-glow glow-two"></div>
+
+  <header class="topbar shell">
+    <a class="brand" href="/" aria-label="ClipSync home">
+      <span class="brand-mark">↗</span>
+      <span>Clip<span>Sync</span></span>
+    </a>
+    <div class="connection-pill" id="connectionPill">
+      <span class="status-dot"></span>
+      <span id="connectionText">Not connected</span>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="eyebrow-line"></span> PRIVATE CLIPBOARD BRIDGE</p>
+        <h1>Copy here.<br><em>Use it anywhere.</em></h1>
+        <p class="hero-lede">A fast, private clipboard room for your computers and browser. Your pairing code is the only key.</p>
+      </div>
+
+      <section class="pair-card panel">
+        <div class="card-kicker">PAIRING ROOM</div>
+        <label for="roomInput">Room code</label>
+        <div class="connect-row">
+          <input id="roomInput" autocomplete="off" spellcheck="false" maxlength="79" placeholder="ABCD-EFGH-IJKL" aria-label="Pairing room code">
+          <button class="primary-button" id="connectButton">Connect <span>↗</span></button>
+        </div>
+        <div class="pair-options">
+          <label class="name-field" for="deviceNameInput">
+            <span>This device</span>
+            <input id="deviceNameInput" maxlength="64" autocomplete="off" value="Web browser">
+          </label>
+          <button class="text-button" id="copyCodeButton" type="button">Copy code</button>
+        </div>
+        <p class="field-help">Use the same 8+ character code in the Windows app. Anyone with the code can join.</p>
+      </section>
+    </section>
+
+    <section class="stats-grid" aria-label="Connection overview">
+      <article class="stat-card panel">
+        <div class="stat-icon violet">⌁</div>
+        <div><span class="stat-label">CONNECTED DEVICES</span><strong id="deviceCount">0</strong><small id="deviceSummary">Waiting for a paired device</small></div>
+      </article>
+      <article class="stat-card panel">
+        <div class="stat-icon green">↔</div>
+        <div><span class="stat-label">ACTIVE PATH</span><strong id="activePath">—</strong><small id="pathSummary">Connect to see the live path</small></div>
+      </article>
+      <article class="stat-card panel">
+        <div class="stat-icon blue">◷</div>
+        <div><span class="stat-label">LAST TRANSFER</span><strong id="lastTransfer">—</strong><small id="lastTransferSummary">Nothing transferred yet</small></div>
+      </article>
+    </section>
+
+    <section class="content-grid">
+      <article class="panel devices-panel">
+        <div class="panel-heading">
+          <div><p class="section-label">ROOM MEMBERS</p><h2>Connected devices</h2></div>
+          <span class="live-badge"><span></span> LIVE</span>
+        </div>
+        <div class="device-list" id="deviceList">
+          <div class="empty-state"><span class="empty-icon">⌁</span><p>No other devices yet</p><small>Open ClipSync on another PC and enter this room code.</small></div>
+        </div>
+      </article>
+
+      <article class="panel mediums-panel">
+        <div class="panel-heading">
+          <div><p class="section-label">ROUTING</p><h2>Transfer mediums</h2></div>
+          <span class="latency">LOW LATENCY</span>
+        </div>
+        <div class="medium-list">
+          <div class="medium-row active"><span class="medium-symbol">↯</span><div><strong>Relay WebSocket</strong><small>Encrypted internet path · active for this web app</small></div><span class="medium-state">READY</span></div>
+          <div class="medium-row"><span class="medium-symbol">⌁</span><div><strong>Direct LAN</strong><small>Fastest path · available between Windows apps</small></div><span class="medium-state muted">DESKTOP</span></div>
+          <div class="medium-row"><span class="medium-symbol">◌</span><div><strong>Browser clipboard</strong><small>Read and write with your browser permission</small></div><span class="medium-state muted">LOCAL</span></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="content-grid lower-grid">
+      <article class="panel clipboard-panel">
+        <div class="panel-heading">
+          <div><p class="section-label">BROWSER CLIPBOARD</p><h2>Send something</h2></div>
+          <label class="switch-label"><input id="autoApplyInput" type="checkbox" checked><span class="switch"></span> Live apply</label>
+        </div>
+        <div class="clipboard-drop" id="clipboardDrop">
+          <div class="clipboard-icon">▣</div>
+          <strong id="clipboardTitle">Read your clipboard</strong>
+          <p id="clipboardDescription">Text, rich formatting, and images stay together.</p>
+          <button class="secondary-button" id="readClipboardButton" type="button">Read &amp; send clipboard</button>
+        </div>
+        <div class="clipboard-preview" id="clipboardPreview" hidden></div>
+        <p class="permission-note" id="permissionNote">Your browser may ask for clipboard permission.</p>
+      </article>
+
+      <article class="panel history-panel">
+        <div class="panel-heading">
+          <div><p class="section-label">THIS BROWSER</p><h2>Clipboard history</h2></div>
+          <button class="text-button" id="clearHistoryButton" type="button">Clear</button>
+        </div>
+        <div class="history-list" id="historyList">
+          <div class="empty-state compact"><span class="empty-icon">◷</span><p>History is empty</p><small>Transfers will appear here while this dashboard is open.</small></div>
+        </div>
+      </article>
+    </section>
+
+    <footer class="footer"><span>ClipSync</span><span>•</span><span>Clipboard data is relayed only to devices in your room.</span><span class="footer-right">No database · No stored clipboard</span></footer>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

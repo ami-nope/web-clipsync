@@ -1,5 +1,8 @@
 import http from "node:http";
+import fs from "node:fs";
+import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { WebSocketServer, WebSocket } from "ws";
 
 const HOST = "0.0.0.0";
@@ -10,10 +13,12 @@ const MAX_ROOM_CLIENTS = positiveInteger(process.env.MAX_ROOM_CLIENTS, 8);
 const MAX_MESSAGES_PER_SECOND = positiveInteger(process.env.MAX_MESSAGES_PER_SECOND, 120);
 const ROOM_PATTERN = /^[A-Z0-9]{8,64}$/;
 const ID_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
+const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public");
 
 // The relay intentionally stores no clipboard contents. A room exists only while
 // at least one live WebSocket is connected.
 const rooms = new Map();
+const clientStates = new WeakMap();
 const stats = { connections: 0, messages: 0, rejected: 0 };
 
 const httpServer = http.createServer((request, response) => {
@@ -37,11 +42,17 @@ const httpServer = http.createServer((request, response) => {
   }
 
   if (request.method === "GET" && url.pathname === "/") {
-    response.writeHead(200, {
-      "content-type": "text/plain; charset=utf-8",
-      "cache-control": "no-store"
-    });
-    response.end("Clipboard Sync relay is running. WebSocket endpoint: " + WS_PATH + "\n");
+    servePublicFile(response, "index.html", "text/html; charset=utf-8");
+    return;
+  }
+
+  const publicAssets = {
+    "/app.js": ["app.js", "text/javascript; charset=utf-8"],
+    "/styles.css": ["styles.css", "text/css; charset=utf-8"]
+  };
+  if (request.method === "GET" && publicAssets[url.pathname]) {
+    const [file, contentType] = publicAssets[url.pathname];
+    servePublicFile(response, file, contentType);
     return;
   }
 
@@ -79,8 +90,12 @@ webSockets.on("connection", (client, request) => {
     room: null,
     messageWindowStarted: Date.now(),
     messagesInWindow: 0,
-    remoteAddress: request.socket.remoteAddress || "unknown"
+    remoteAddress: request.socket.remoteAddress || "unknown",
+    deviceId: null,
+    deviceName: "Unknown device",
+    medium: "relay"
   };
+  clientStates.set(client, state);
   stats.connections += 1;
   client.isAlive = true;
 
@@ -114,7 +129,10 @@ webSockets.on("connection", (client, request) => {
     }
 
     if (message.type === "hello") {
-      joinRoom(client, state, message.room);
+      if (joinRoom(client, state, message.room)) {
+        updateDeviceIdentity(state, message);
+        broadcastPresence(state.room);
+      }
       return;
     }
 
@@ -129,7 +147,9 @@ webSockets.on("connection", (client, request) => {
 
   client.on("close", () => {
     stats.connections = Math.max(0, stats.connections - 1);
+    const room = state.room;
     leaveRoom(client, state);
+    if (room) broadcastPresence(room);
   });
 
   client.on("error", () => {
@@ -168,6 +188,15 @@ function validateMessage(message, currentRoom) {
     return invalid("message data must be a string");
   if (message.type === "hello" && message.data !== "")
     return invalid("hello data must be empty");
+  if (message.deviceId !== undefined &&
+      (typeof message.deviceId !== "string" || !ID_PATTERN.test(message.deviceId)))
+    return invalid("deviceId is invalid");
+  if (message.deviceName !== undefined &&
+      (typeof message.deviceName !== "string" || message.deviceName.length > 64))
+    return invalid("deviceName is invalid");
+  if (message.medium !== undefined &&
+      (typeof message.medium !== "string" || !["relay", "browser", "lan"].includes(message.medium)))
+    return invalid("medium is invalid");
   if (message.type === "chunk") {
     if (typeof message.transferId !== "string" || !ID_PATTERN.test(message.transferId))
       return invalid("transferId is invalid");
@@ -194,6 +223,44 @@ function joinRoom(client, state, room) {
   rooms.set(room, current);
   state.room = room;
   return true;
+}
+
+function updateDeviceIdentity(state, message) {
+  state.deviceId = message.deviceId || message.id;
+  state.deviceName = normalizeDeviceName(message.deviceName, message.medium);
+  state.medium = message.medium || "relay";
+}
+
+function normalizeDeviceName(value, medium) {
+  const name = typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
+  if (name) return name.slice(0, 64);
+  return medium === "browser" ? "Web browser" : "Desktop client";
+}
+
+function broadcastPresence(roomName) {
+  const room = rooms.get(roomName);
+  if (!room) return;
+
+  const devices = [...room].map(client => {
+    const state = clientStates.get(client);
+    return {
+      id: state?.deviceId || "unknown",
+      name: state?.deviceName || "Unknown device",
+      medium: state?.medium || "relay"
+    };
+  });
+  const payload = JSON.stringify({
+    room: roomName,
+    id: `presence-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    type: "presence",
+    data: "",
+    ts: Date.now(),
+    devices
+  });
+  for (const peer of room) {
+    if (peer.readyState === WebSocket.OPEN)
+      peer.send(payload, { binary: false });
+  }
 }
 
 function leaveRoom(client, state) {
@@ -240,6 +307,23 @@ function invalid(error) {
 function rejectUpgrade(socket, status, message) {
   socket.write(`HTTP/1.1 ${status} ${message}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
   socket.destroy();
+}
+
+function servePublicFile(response, file, contentType) {
+  const filePath = path.join(PUBLIC_DIR, file);
+  fs.readFile(filePath, (error, data) => {
+    if (error) {
+      response.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+      response.end("Web interface unavailable\n");
+      return;
+    }
+    response.writeHead(200, {
+      "content-type": contentType,
+      "cache-control": "no-store",
+      "content-length": data.length
+    });
+    response.end(data);
+  });
 }
 
 function normalizePath(value) {

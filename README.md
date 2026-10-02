@@ -27,12 +27,11 @@ railway init
 railway up
 ```
 
-Generate a public domain for the service in Railway. Configure the Windows
-client with the resulting URL converted from `https://` to `wss://`, for
-example:
+The deployed public domain is already configured for the Windows client. The
+relay WebSocket URL is:
 
 ```text
-wss://your-generated-domain.up.railway.app/ws
+wss://web-clipsync-production.up.railway.app/ws
 ```
 
 Railway injects `PORT`; the server binds to `0.0.0.0` and exposes `/health` for
